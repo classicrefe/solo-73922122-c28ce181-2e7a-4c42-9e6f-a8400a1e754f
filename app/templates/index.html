@@ -6,7 +6,8 @@
   <table>
     <thead>
       <tr>
-        <th>站码</th><th>摘要天数</th><th>最早 UTC 日</th><th>最晚 UTC 日</th>
+        <th>站码</th><th>导入方式</th><th>分片数</th>
+        <th>摘要天数</th><th>最早 UTC 日</th><th>最晚 UTC 日</th>
         <th>累计有测秒数</th><th>累计未测秒数</th>
       </tr>
     </thead>
@@ -14,9 +15,11 @@
       {% for s in stations %}
       <tr>
         <td>{{ s.station }}</td>
+        <td>{{ labels.get(s.import_mode, s.import_mode) }}</td>
+        <td>{% if s.import_mode == "sharded" %}{{ shard_counts.get(s.station, 0) }}{% else %}—{% endif %}</td>
         <td>{{ s.day_count }}</td>
-        <td>{{ s.first_day }}</td>
-        <td>{{ s.last_day }}</td>
+        <td>{{ s.first_day or "—" }}</td>
+        <td>{{ s.last_day or "—" }}</td>
         <td>{{ s.measured | secs }}</td>
         <td>{{ s.unmeasured | secs }}</td>
       </tr>

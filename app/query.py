@@ -8,6 +8,8 @@
 """
 from datetime import datetime, timedelta
 
+from .db import read_snapshot
+
 DAY_SECONDS = 86400
 
 
@@ -57,19 +59,21 @@ def run_query(conn, station, start_text, end_text, threshold_text):
     days = list(daterange(start_day, end_day))
     total_span = len(days) * DAY_SECONDS
 
-    summaries = {
-        r["day"]: r
-        for r in conn.execute(
-            "SELECT * FROM daily_summary WHERE station = ? "
-            "AND day >= ? AND day <= ? ORDER BY day",
-            (station, start_day.isoformat(), end_day.isoformat()),
-        )
-    }
-    tail_rows = conn.execute(
-        "SELECT day, seconds FROM daily_level_tail "
-        "WHERE station = ? AND level_mm = ? AND day >= ? AND day <= ?",
-        (station, h, start_day.isoformat(), end_day.isoformat()),
-    ).fetchall()
+    # 整个查询在一个读事务里取数：日摘要与尾分布必然来自同一已提交状态。
+    with read_snapshot(conn):
+        summaries = {
+            r["day"]: r
+            for r in conn.execute(
+                "SELECT * FROM daily_summary WHERE station = ? "
+                "AND day >= ? AND day <= ? ORDER BY day",
+                (station, start_day.isoformat(), end_day.isoformat()),
+            )
+        }
+        tail_rows = conn.execute(
+            "SELECT day, seconds FROM daily_level_tail "
+            "WHERE station = ? AND level_mm = ? AND day >= ? AND day <= ?",
+            (station, h, start_day.isoformat(), end_day.isoformat()),
+        ).fetchall()
     tails = {r["day"]: r["seconds"] for r in tail_rows}
 
     per_day = []

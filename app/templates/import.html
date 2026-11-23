@@ -4,7 +4,24 @@
   <h2 style="margin-top:0">导入单站观测 CSV</h2>
   <form method="post" enctype="multipart/form-data">
     <label for="station">站码（同一 CSV 只属于一个站）</label>
-    <input type="text" id="station" name="station" required placeholder="例如 S001">
+    <input type="text" id="station" name="station" value="{{ station }}" required placeholder="例如 S001">
+
+    <label>导入方式（站点首次入库时选定，此后自动沿用）</label>
+    {% if locked_mode %}
+    <p class="muted">
+      站 <code>{{ station }}</code> 已锁定为
+      <b>{{ labels.get(locked_mode, locked_mode) }}</b>，本次提交不能更改。
+    </p>
+    {% else %}
+    <label style="font-weight:normal">
+      <input type="radio" name="mode" value="full"
+             {% if selected_mode != "sharded" %}checked{% endif %}> 整文件导入（一次上传全部观测；重叠即整批退回）
+    </label>
+    <label style="font-weight:normal">
+      <input type="radio" name="mode" value="sharded"
+             {% if selected_mode == "sharded" %}checked{% endif %}> 分片补传（新站首次；允许乱序、同一天多次上传，迟到片自动插值）
+    </label>
+    {% endif %}
 
     <label for="csv_file">CSV 文件（UTF-8，表头可选，列：<code>timestamp_utc,level_mm</code>）</label>
     <input type="file" id="csv_file" name="csv_file" accept=".csv,text/csv" required>
@@ -15,19 +32,39 @@
   <h3>格式与核算规则</h3>
   <ul class="muted" style="line-height:1.8">
     <li>时间戳为 UTC 整秒 ISO-8601，如 <code>2026-01-01T23:30:00Z</code>；水位为整数毫米。</li>
-    <li>时间戳必须严格递增；相邻观测间隔 ≤ 1 小时按直线估算，&gt; 1 小时判为未测。</li>
+    <li>时间戳必须严格递增；片内、片间相邻观测间隔 ≤ 1 小时按直线估算，&gt; 1 小时判为未测。</li>
     <li>跨午夜观测段按两个 UTC 日实际占秒分摊，每天总长 86400 秒。</li>
-    <li>仅落库逐日摘要；同站任一天与已有摘要重叠即整批退回，原摘要保持不变。</li>
+    <li>仅落库逐日摘要与分片首末读数；分片模式允许片内全为未测的文件。</li>
+    <li>分片模式：同站各分片 <code>[首条, 末条]</code>（含两端）一旦重叠即整批退回；
+        迟到分片插入两片之间时撤掉原片间插值，只重算新片与变动的片间段涉及的 UTC 日。</li>
+    <li>整文件模式：同站任一天与已有摘要重叠即整批退回，原摘要保持不变。</li>
+    <li>一次核算只读同一已提交状态的摘要；收片记录与日摘要同一事务，失败即整体保持原状。</li>
     <li>文件上限 16MB。</li>
   </ul>
 
   {% if result %}
   <h3>本次导入结果</h3>
   <table>
+    {% if result.mode == "sharded" %}
+    <tr><th>导入方式</th><td>分片补传</td></tr>
+    <tr><th>分片编号</th><td>#{{ result.shard_id }}</td></tr>
+    <tr><th>本片观测条数</th><td>{{ result.observation_count }}</td></tr>
+    <tr><th>片内可核算有测秒数</th><td>{{ result.measured_seconds | secs }}</td></tr>
+    <tr><th>左侧相邻分片</th><td>{% if result.left_shard_id %}#{{ result.left_shard_id }}{% else %}无{% endif %}</td></tr>
+    <tr><th>右侧相邻分片</th><td>{% if result.right_shard_id %}#{{ result.right_shard_id }}{% else %}无{% endif %}</td></tr>
+    <tr><th>原相邻两片</th>
+        <td>{% if result.removed_gap %}#{{ result.removed_gap[0] }} ↔ #{{ result.removed_gap[1] }}{% else %}无{% endif %}</td></tr>
+    <tr><th>是否撤掉旧片间插值</th>
+        <td>{% if result.removed_interpolation %}是{% elif result.removed_gap %}否（原间隔超过 1 小时，本无插值）{% else %}无原相邻片{% endif %}</td></tr>
+    <tr><th>重算的 UTC 日数</th><td>{{ result.day_count }}</td></tr>
+    <tr><th>重算的 UTC 日</th><td>{{ result.days | join("、") }}</td></tr>
+    {% else %}
+    <tr><th>导入方式</th><td>整文件导入</td></tr>
     <tr><th>观测条数</th><td>{{ result.observation_count }}</td></tr>
     <tr><th>写入 UTC 日数</th><td>{{ result.day_count }}</td></tr>
     <tr><th>未测段数量（间隔 &gt; 1 小时）</th><td>{{ result.unmeasured_gaps }}</td></tr>
     <tr><th>覆盖日期</th><td>{{ result.days | join("、") }}</td></tr>
+    {% endif %}
   </table>
   {% endif %}
 </div>
