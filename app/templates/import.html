@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0">导入单站观测 CSV</h2>
+  <form method="post" enctype="multipart/form-data">
+    <label for="station">站码（同一 CSV 只属于一个站）</label>
+    <input type="text" id="station" name="station" required placeholder="例如 S001">
+
+    <label for="csv_file">CSV 文件（UTF-8，表头可选，列：<code>timestamp_utc,level_mm</code>）</label>
+    <input type="file" id="csv_file" name="csv_file" accept=".csv,text/csv" required>
+
+    <button type="submit">导入并核算逐日摘要</button>
+  </form>
+
+  <h3>格式与核算规则</h3>
+  <ul class="muted" style="line-height:1.8">
+    <li>时间戳为 UTC 整秒 ISO-8601，如 <code>2026-01-01T23:30:00Z</code>；水位为整数毫米。</li>
+    <li>时间戳必须严格递增；相邻观测间隔 ≤ 1 小时按直线估算，&gt; 1 小时判为未测。</li>
+    <li>跨午夜观测段按两个 UTC 日实际占秒分摊，每天总长 86400 秒。</li>
+    <li>仅落库逐日摘要；同站任一天与已有摘要重叠即整批退回，原摘要保持不变。</li>
+    <li>文件上限 16MB。</li>
+  </ul>
+
+  {% if result %}
+  <h3>本次导入结果</h3>
+  <table>
+    <tr><th>观测条数</th><td>{{ result.observation_count }}</td></tr>
+    <tr><th>写入 UTC 日数</th><td>{{ result.day_count }}</td></tr>
+    <tr><th>未测段数量（间隔 &gt; 1 小时）</th><td>{{ result.unmeasured_gaps }}</td></tr>
+    <tr><th>覆盖日期</th><td>{{ result.days | join("、") }}</td></tr>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

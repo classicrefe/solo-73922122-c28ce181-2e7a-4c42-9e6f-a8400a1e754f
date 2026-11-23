@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0">警戒线达标时长核算（只读摘要）</h2>
+  <form method="post">
+    <label for="station">站码</label>
+    <input type="text" id="station" name="station" value="{{ form.station }}" required>
+
+    <label for="start">开始日期（UTC）</label>
+    <input type="date" id="start" name="start" value="{{ form.start }}" required>
+
+    <label for="end">结束日期（UTC，含当日）</label>
+    <input type="date" id="end" name="end" value="{{ form.end }}" required>
+
+    <label for="threshold">警戒水位（任意整数毫米；恰好等于警戒线的平水段算达标）</label>
+    <input type="number" id="threshold" name="threshold" step="1"
+           value="{{ form.threshold }}" required>
+
+    <button type="submit">核算</button>
+  </form>
+  <p class="muted">调整警戒线重复查询不会重新导入，也不会修改任何已保存的摘要。</p>
+</div>
+
+{% if result %}
+<div class="card">
+  <h2 style="margin-top:0">核算结果：站 {{ result.station }} / 警戒线 {{ result.threshold_mm }} mm</h2>
+  <div>
+    <div class="kpi">区间总秒数<b>{{ result.total_span_seconds | secs }}</b></div>
+    <div class="kpi">达标累计秒数（≥ 警戒线）<b>{{ result.above_seconds | secs }}</b></div>
+    <div class="kpi">有测秒数<b>{{ result.measured_seconds | secs }}</b></div>
+    <div class="kpi">未测秒数<b>{{ result.unmeasured_seconds | secs }}</b></div>
+  </div>
+  <p class="muted" style="margin-top:14px">
+    达标秒数只统计有测时段；未测时段不计达标。无任何摘要的日期按全天未测列示。
+  </p>
+
+  <h3>逐日明细</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>UTC 日期</th><th>最低水位 (mm)</th><th>最高水位 (mm)</th>
+        <th>达标秒数 ≥ {{ result.threshold_mm }}</th>
+        <th>有测秒数</th><th>未测秒数</th><th>数据状态</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in result.per_day %}
+      <tr>
+        <td>{{ d.day }}</td>
+        <td>{{ d.min_level | mm }}</td>
+        <td>{{ d.max_level | mm }}</td>
+        <td>{{ d.above_seconds | secs }}</td>
+        <td>{{ d.measured_seconds | secs }}</td>
+        <td>{{ d.unmeasured_seconds | secs }}</td>
+        <td>{% if d.has_data %}有摘要{% else %}无数据（全天未测）{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

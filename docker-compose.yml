@@ -1,0 +1,16 @@
+services:
+  web:
+    build: .
+    image: waterlevel-accounting:latest
+    container_name: waterlevel-web
+    ports:
+      - "8000:8000"
+    volumes:
+      - waterlevel-data:/data
+    environment:
+      WATERLEVEL_DB: /data/waterlevel.db
+      SECRET_KEY: change-me-in-production
+    restart: unless-stopped
+
+volumes:
+  waterlevel-data:

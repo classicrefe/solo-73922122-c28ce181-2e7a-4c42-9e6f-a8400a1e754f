@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0">站点逐日摘要概览</h2>
+  {% if stations %}
+  <table>
+    <thead>
+      <tr>
+        <th>站码</th><th>摘要天数</th><th>最早 UTC 日</th><th>最晚 UTC 日</th>
+        <th>累计有测秒数</th><th>累计未测秒数</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in stations %}
+      <tr>
+        <td>{{ s.station }}</td>
+        <td>{{ s.day_count }}</td>
+        <td>{{ s.first_day }}</td>
+        <td>{{ s.last_day }}</td>
+        <td>{{ s.measured | secs }}</td>
+        <td>{{ s.unmeasured | secs }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">尚无任何摘要数据，请先到“导入观测 CSV”页导入。</p>
+  {% endif %}
+  <p class="muted">
+    系统仅保存逐日摘要（有测/未测秒数与整数毫米尾分布），不保存原始观测；
+    改变警戒线的查询始终只读摘要。
+  </p>
+</div>
+{% endblock %}
